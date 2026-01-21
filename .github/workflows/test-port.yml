@@ -175,6 +175,13 @@ jobs:
           fi
           echo "✅ LICENSE defined"
           
+          # Check WWW in Makefile (new requirement)
+          if ! grep -q "^WWW=" lang/arturo/Makefile; then
+            echo "❌ ERROR: WWW not found in Makefile"
+            exit 1
+          fi
+          echo "✅ WWW defined in Makefile"
+          
           # Check distinfo format
           echo ""
           echo "Checking distinfo format..."
@@ -197,15 +204,15 @@ jobs:
           fi
           echo "✅ SIZE found"
           
-          # Check pkg-descr
+          # Check pkg-descr (WWW should NOT be here anymore)
           echo ""
           echo "Checking pkg-descr..."
           
-          if ! grep -q "WWW:" lang/arturo/pkg-descr; then
-            echo "❌ ERROR: WWW: line missing in pkg-descr"
+          if grep -q "^WWW:" lang/arturo/pkg-descr; then
+            echo "❌ ERROR: WWW line should be in Makefile, not pkg-descr"
             exit 1
           fi
-          echo "✅ WWW line found"
+          echo "✅ WWW correctly omitted from pkg-descr (it's in Makefile)"
           
           DESC_LINES=$(wc -l < lang/arturo/pkg-descr)
           if [ $DESC_LINES -lt 3 ]; then
