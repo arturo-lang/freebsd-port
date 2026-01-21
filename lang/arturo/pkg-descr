@@ -1,0 +1,16 @@
+Arturo is a simple, expressive, and portable programming language for efficient 
+scripting and computing.
+
+Key Features:
+- Homoiconic: code-as-data philosophy inspired by Rebol and Lisp
+- Powerful scripting with an expressive, clean syntax
+- Batteries-included with rich standard library
+- Built-in package manager
+- Cross-platform support
+- Interactive REPL for rapid development
+- Extensive documentation and examples
+
+Arturo combines the elegance of scripting languages with the power of modern 
+programming paradigms, making it ideal for both quick scripts and larger projects.
+
+WWW: https://arturo-lang.io/
