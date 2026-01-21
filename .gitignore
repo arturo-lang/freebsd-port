@@ -1,0 +1,17 @@
+# FreeBSD port work directories
+work/
+*.core
+
+# Distribution files (downloaded during build)
+distfiles/
+
+# Package files
+*.txz
+*.tbz
+*.pkg
+
+# Backup files
+*~
+*.bak
+*.orig
+.*.swp
