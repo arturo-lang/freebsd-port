@@ -1,0 +1,277 @@
+name: Test FreeBSD Port
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-freebsd-port:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test port on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg update -f
+            pkg install -y portlint
+          
+          run: |
+            echo "=========================================="
+            echo "FreeBSD Port Test for Arturo"
+            echo "=========================================="
+            echo "FreeBSD Version:"
+            freebsd-version
+            echo ""
+            
+            cd lang/arturo
+            
+            echo "=========================================="
+            echo "1. Running portlint checks..."
+            echo "=========================================="
+            portlint -AC || true
+            echo ""
+            
+            echo "=========================================="
+            echo "2. Testing port fetch..."
+            echo "=========================================="
+            make fetch
+            echo ""
+            
+            echo "=========================================="
+            echo "3. Testing port checksum..."
+            echo "=========================================="
+            make checksum
+            echo ""
+            
+            echo "=========================================="
+            echo "4. Testing port extract..."
+            echo "=========================================="
+            make extract
+            echo ""
+            
+            echo "=========================================="
+            echo "5. Testing port stage..."
+            echo "=========================================="
+            make stage
+            echo ""
+            
+            echo "=========================================="
+            echo "6. Installing port..."
+            echo "=========================================="
+            make install
+            echo ""
+            
+            echo "=========================================="
+            echo "7. Testing installed binary..."
+            echo "=========================================="
+            which arturo
+            arturo --version
+            arturo --help
+            echo ""
+            
+            echo "=========================================="
+            echo "8. Testing basic Arturo functionality..."
+            echo "=========================================="
+            echo 'print "Hello from FreeBSD!"' | arturo -
+            echo ""
+            
+            echo "=========================================="
+            echo "9. Creating package..."
+            echo "=========================================="
+            make package
+            echo ""
+            
+            echo "=========================================="
+            echo "10. Package info..."
+            echo "=========================================="
+            pkg info arturo
+            echo ""
+            
+            echo "=========================================="
+            echo "All tests passed successfully!"
+            echo "=========================================="
+
+  verify-structure:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Verify port structure
+        run: |
+          echo "=========================================="
+          echo "Verifying Port Structure"
+          echo "=========================================="
+          
+          # Check required files exist
+          if [ ! -f "lang/arturo/Makefile" ]; then
+            echo "❌ ERROR: Makefile missing"
+            exit 1
+          fi
+          echo "✅ Makefile found"
+          
+          if [ ! -f "lang/arturo/distinfo" ]; then
+            echo "❌ ERROR: distinfo missing"
+            exit 1
+          fi
+          echo "✅ distinfo found"
+          
+          if [ ! -f "lang/arturo/pkg-descr" ]; then
+            echo "❌ ERROR: pkg-descr missing"
+            exit 1
+          fi
+          echo "✅ pkg-descr found"
+          
+          # Check Makefile has required fields
+          echo ""
+          echo "Checking Makefile contents..."
+          
+          if ! grep -q "PORTNAME=" lang/arturo/Makefile; then
+            echo "❌ ERROR: PORTNAME not found in Makefile"
+            exit 1
+          fi
+          echo "✅ PORTNAME defined"
+          
+          if ! grep -q "DISTVERSION=" lang/arturo/Makefile; then
+            echo "❌ ERROR: DISTVERSION not found in Makefile"
+            exit 1
+          fi
+          echo "✅ DISTVERSION defined"
+          
+          if ! grep -q "MAINTAINER=" lang/arturo/Makefile; then
+            echo "❌ ERROR: MAINTAINER not found in Makefile"
+            exit 1
+          fi
+          echo "✅ MAINTAINER defined"
+          
+          if ! grep -q "COMMENT=" lang/arturo/Makefile; then
+            echo "❌ ERROR: COMMENT not found in Makefile"
+            exit 1
+          fi
+          echo "✅ COMMENT defined"
+          
+          if ! grep -q "LICENSE=" lang/arturo/Makefile; then
+            echo "❌ ERROR: LICENSE not found in Makefile"
+            exit 1
+          fi
+          echo "✅ LICENSE defined"
+          
+          # Check distinfo format
+          echo ""
+          echo "Checking distinfo format..."
+          
+          if ! grep -q "TIMESTAMP" lang/arturo/distinfo; then
+            echo "❌ ERROR: TIMESTAMP missing in distinfo"
+            exit 1
+          fi
+          echo "✅ TIMESTAMP found"
+          
+          if ! grep -q "SHA256" lang/arturo/distinfo; then
+            echo "❌ ERROR: SHA256 missing in distinfo"
+            exit 1
+          fi
+          echo "✅ SHA256 found"
+          
+          if ! grep -q "SIZE" lang/arturo/distinfo; then
+            echo "❌ ERROR: SIZE missing in distinfo"
+            exit 1
+          fi
+          echo "✅ SIZE found"
+          
+          # Check pkg-descr
+          echo ""
+          echo "Checking pkg-descr..."
+          
+          if ! grep -q "WWW:" lang/arturo/pkg-descr; then
+            echo "❌ ERROR: WWW: line missing in pkg-descr"
+            exit 1
+          fi
+          echo "✅ WWW line found"
+          
+          DESC_LINES=$(wc -l < lang/arturo/pkg-descr)
+          if [ $DESC_LINES -lt 3 ]; then
+            echo "❌ ERROR: pkg-descr too short"
+            exit 1
+          fi
+          echo "✅ pkg-descr has sufficient content ($DESC_LINES lines)"
+          
+          echo ""
+          echo "=========================================="
+          echo "✅ All structure checks passed!"
+          echo "=========================================="
+
+  check-download:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Verify distfile is downloadable
+        run: |
+          echo "=========================================="
+          echo "Verifying Distfile Download"
+          echo "=========================================="
+          
+          # Extract URL from Makefile
+          MASTER_SITES=$(grep "^MASTER_SITES=" lang/arturo/Makefile | cut -d'=' -f2- | tr -d ' ')
+          DISTNAME=$(grep "^DISTNAME=" lang/arturo/Makefile | cut -d'=' -f2- | sed 's/\${PORTNAME}/arturo/g' | sed 's/\${DISTVERSION}/0.10.0/g')
+          EXTRACT_SUFX=$(grep "^EXTRACT_SUFX=" lang/arturo/Makefile | cut -d'=' -f2- | tr -d ' ')
+          
+          FULL_URL="${MASTER_SITES}${DISTNAME}${EXTRACT_SUFX}"
+          
+          echo "Testing download from: $FULL_URL"
+          echo ""
+          
+          # Test download
+          if curl --fail --head --silent "$FULL_URL" > /dev/null; then
+            echo "✅ Distfile is accessible"
+            
+            # Download and verify checksum
+            curl -L -o /tmp/arturo.zip "$FULL_URL"
+            
+            EXPECTED_SHA256=$(grep "^SHA256" lang/arturo/distinfo | awk '{print $4}' | tr -d ')')
+            ACTUAL_SHA256=$(sha256sum /tmp/arturo.zip | awk '{print $1}')
+            
+            echo ""
+            echo "Expected SHA256: $EXPECTED_SHA256"
+            echo "Actual SHA256:   $ACTUAL_SHA256"
+            
+            if [ "$EXPECTED_SHA256" = "$ACTUAL_SHA256" ]; then
+              echo "✅ Checksum matches!"
+            else
+              echo "❌ ERROR: Checksum mismatch!"
+              exit 1
+            fi
+            
+            EXPECTED_SIZE=$(grep "^SIZE" lang/arturo/distinfo | awk '{print $4}' | tr -d ')')
+            ACTUAL_SIZE=$(stat -c%s /tmp/arturo.zip)
+            
+            echo ""
+            echo "Expected size: $EXPECTED_SIZE bytes"
+            echo "Actual size:   $ACTUAL_SIZE bytes"
+            
+            if [ "$EXPECTED_SIZE" = "$ACTUAL_SIZE" ]; then
+              echo "✅ Size matches!"
+            else
+              echo "❌ ERROR: Size mismatch!"
+              exit 1
+            fi
+          else
+            echo "❌ ERROR: Distfile not accessible"
+            exit 1
+          fi
+          
+          echo ""
+          echo "=========================================="
+          echo "✅ Download verification passed!"
+          echo "=========================================="
