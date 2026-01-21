@@ -21,10 +21,14 @@ jobs:
         with:
           usesh: true
           prepare: |
+            set -e  # FAIL ON ANY ERROR
             pkg update -f
             pkg install -y git
           
           run: |
+            set -e  # FAIL ON ANY ERROR - THIS IS CRITICAL!
+            set -o pipefail  # FAIL ON PIPE ERRORS TOO
+            
             echo "=========================================="
             echo "FreeBSD Port Test for Arturo"
             echo "=========================================="
@@ -70,19 +74,15 @@ jobs:
             echo "Work directory contents:"
             ls -la work/
             echo ""
-            echo "Extracted directory:"
-            find work -type f -name "arturo"
-            echo ""
             
             echo "=========================================="
             echo "5. Installing binary directly (skip dependencies for CI)..."
             echo "=========================================="
-            ARTURO_BIN=$(find work -type f -name "arturo" -executable)
-            if [ -n "$ARTURO_BIN" ]; then
-                install -m 755 "$ARTURO_BIN" /usr/local/bin/arturo
+            if [ -f "work/arturo" ]; then
+                install -m 755 work/arturo /usr/local/bin/arturo
                 echo "✅ Binary installed to /usr/local/bin/arturo"
             else
-                echo "❌ Could not find arturo binary"
+                echo "❌ ERROR: Could not find work/arturo binary"
                 exit 1
             fi
             echo ""
@@ -91,13 +91,25 @@ jobs:
             echo "6. Testing installed binary..."
             echo "=========================================="
             which arturo
+            if [ ! -x /usr/local/bin/arturo ]; then
+                echo "❌ ERROR: arturo binary not executable"
+                exit 1
+            fi
+            echo "✅ Binary is executable"
+            
             file /usr/local/bin/arturo
             ldd /usr/local/bin/arturo || echo "Note: ldd may show missing dependencies (expected in CI)"
-            arturo --version || echo "⚠️  Binary needs runtime dependencies"
+            
+            # Try to run it - don't fail if deps missing, just note it
+            if arturo --version 2>/dev/null; then
+                echo "✅ Binary runs successfully"
+            else
+                echo "⚠️  Binary needs runtime dependencies (this is OK for binary ports)"
+            fi
             echo ""
             
             echo "=========================================="
-            echo "✅ Port structure and binary extraction successful!"
+            echo "✅ ALL TESTS PASSED!"
             echo "=========================================="
 
   verify-structure:
@@ -109,6 +121,8 @@ jobs:
       
       - name: Verify port structure
         run: |
+          set -e  # FAIL ON ANY ERROR
+          
           echo "=========================================="
           echo "Verifying Port Structure"
           echo "=========================================="
@@ -221,6 +235,8 @@ jobs:
       
       - name: Verify distfile is downloadable
         run: |
+          set -e  # FAIL ON ANY ERROR
+          
           echo "=========================================="
           echo "Verifying Distfile Download"
           echo "=========================================="
@@ -230,42 +246,39 @@ jobs:
           echo "Testing download from: $FULL_URL"
           echo ""
           
-          if curl --fail --head --silent "$FULL_URL" > /dev/null; then
-            echo "✅ Distfile is accessible"
-            
-            curl -L -o /tmp/arturo.zip "$FULL_URL"
-            
-            EXPECTED_SHA256=$(grep "^SHA256" lang/arturo/distinfo | awk '{print $4}' | tr -d ')')
-            ACTUAL_SHA256=$(sha256sum /tmp/arturo.zip | awk '{print $1}')
-            
-            echo ""
-            echo "Expected SHA256: $EXPECTED_SHA256"
-            echo "Actual SHA256:   $ACTUAL_SHA256"
-            
-            if [ "$EXPECTED_SHA256" = "$ACTUAL_SHA256" ]; then
-              echo "✅ Checksum matches!"
-            else
-              echo "❌ ERROR: Checksum mismatch!"
-              exit 1
-            fi
-            
-            EXPECTED_SIZE=$(grep "^SIZE" lang/arturo/distinfo | awk '{print $4}' | tr -d ')')
-            ACTUAL_SIZE=$(stat -c%s /tmp/arturo.zip)
-            
-            echo ""
-            echo "Expected size: $EXPECTED_SIZE bytes"
-            echo "Actual size:   $ACTUAL_SIZE bytes"
-            
-            if [ "$EXPECTED_SIZE" = "$ACTUAL_SIZE" ]; then
-              echo "✅ Size matches!"
-            else
-              echo "❌ ERROR: Size mismatch!"
-              exit 1
-            fi
-          else
+          if ! curl --fail --head --silent "$FULL_URL" > /dev/null; then
             echo "❌ ERROR: Distfile not accessible"
             exit 1
           fi
+          echo "✅ Distfile is accessible"
+          
+          curl -L -o /tmp/arturo.zip "$FULL_URL"
+          
+          EXPECTED_SHA256=$(grep "^SHA256" lang/arturo/distinfo | awk '{print $4}' | tr -d ')')
+          ACTUAL_SHA256=$(sha256sum /tmp/arturo.zip | awk '{print $1}')
+          
+          echo ""
+          echo "Expected SHA256: $EXPECTED_SHA256"
+          echo "Actual SHA256:   $ACTUAL_SHA256"
+          
+          if [ "$EXPECTED_SHA256" != "$ACTUAL_SHA256" ]; then
+            echo "❌ ERROR: Checksum mismatch!"
+            exit 1
+          fi
+          echo "✅ Checksum matches!"
+          
+          EXPECTED_SIZE=$(grep "^SIZE" lang/arturo/distinfo | awk '{print $4}' | tr -d ')')
+          ACTUAL_SIZE=$(stat -c%s /tmp/arturo.zip)
+          
+          echo ""
+          echo "Expected size: $EXPECTED_SIZE bytes"
+          echo "Actual size:   $ACTUAL_SIZE bytes"
+          
+          if [ "$EXPECTED_SIZE" != "$ACTUAL_SIZE" ]; then
+            echo "❌ ERROR: Size mismatch!"
+            exit 1
+          fi
+          echo "✅ Size matches!"
           
           echo ""
           echo "=========================================="
