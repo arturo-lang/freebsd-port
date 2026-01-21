@@ -67,24 +67,37 @@ jobs:
             echo "=========================================="
             echo "4. Verifying extracted contents..."
             echo "=========================================="
-            ls -la work/arturo-*/
+            echo "Work directory contents:"
+            ls -la work/
+            echo ""
+            echo "Extracted directory:"
+            find work -type f -name "arturo"
             echo ""
             
             echo "=========================================="
             echo "5. Installing binary directly (skip dependencies for CI)..."
             echo "=========================================="
-            install -m 755 work/arturo-*/arturo /usr/local/bin/
+            ARTURO_BIN=$(find work -type f -name "arturo" -executable)
+            if [ -n "$ARTURO_BIN" ]; then
+                install -m 755 "$ARTURO_BIN" /usr/local/bin/arturo
+                echo "✅ Binary installed to /usr/local/bin/arturo"
+            else
+                echo "❌ Could not find arturo binary"
+                exit 1
+            fi
             echo ""
             
             echo "=========================================="
             echo "6. Testing installed binary..."
             echo "=========================================="
             which arturo
-            arturo --version || echo "Note: May need dependencies for full functionality"
+            file /usr/local/bin/arturo
+            ldd /usr/local/bin/arturo || echo "Note: ldd may show missing dependencies (expected in CI)"
+            arturo --version || echo "⚠️  Binary needs runtime dependencies"
             echo ""
             
             echo "=========================================="
-            echo "✅ Port structure and binary installation successful!"
+            echo "✅ Port structure and binary extraction successful!"
             echo "=========================================="
 
   verify-structure:
