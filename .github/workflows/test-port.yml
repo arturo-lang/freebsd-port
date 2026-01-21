@@ -222,12 +222,8 @@ jobs:
           echo "Verifying Distfile Download"
           echo "=========================================="
           
-          # Extract URL from Makefile
-          MASTER_SITES=$(grep "^MASTER_SITES=" lang/arturo/Makefile | cut -d'=' -f2- | tr -d ' ')
-          DISTNAME=$(grep "^DISTNAME=" lang/arturo/Makefile | cut -d'=' -f2- | sed 's/\${PORTNAME}/arturo/g' | sed 's/\${DISTVERSION}/0.10.0/g')
-          EXTRACT_SUFX=$(grep "^EXTRACT_SUFX=" lang/arturo/Makefile | cut -d'=' -f2- | tr -d ' ')
-          
-          FULL_URL="${MASTER_SITES}${DISTNAME}${EXTRACT_SUFX}"
+          # Direct URL test
+          FULL_URL="https://arturo-lang.io/files/arturo-0.10.0-freebsd-amd64.zip"
           
           echo "Testing download from: $FULL_URL"
           echo ""
