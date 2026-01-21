@@ -21,9 +21,18 @@ jobs:
           usesh: true
           prepare: |
             pkg update -f
-            pkg install -y portlint
+            pkg install -y portlint git
+            
+            # Install ports tree
+            echo "Installing FreeBSD ports tree..."
+            portsnap fetch extract
+            
+            # Or use git (faster for updates)
+            # git clone --depth 1 https://git.freebsd.org/ports.git /usr/ports
           
           run: |
+            set -e  # Exit on any error
+            
             echo "=========================================="
             echo "FreeBSD Port Test for Arturo"
             echo "=========================================="
@@ -31,12 +40,16 @@ jobs:
             freebsd-version
             echo ""
             
-            cd lang/arturo
+            # Copy our port into the ports tree
+            echo "Setting up port in ports tree..."
+            mkdir -p /usr/ports/lang/arturo
+            cp -r lang/arturo/* /usr/ports/lang/arturo/
+            cd /usr/ports/lang/arturo
             
             echo "=========================================="
             echo "1. Running portlint checks..."
             echo "=========================================="
-            portlint -AC || true
+            portlint -AC || echo "Portlint warnings (non-fatal)"
             echo ""
             
             echo "=========================================="
@@ -96,7 +109,7 @@ jobs:
             echo ""
             
             echo "=========================================="
-            echo "All tests passed successfully!"
+            echo "✅ All tests passed successfully!"
             echo "=========================================="
 
   verify-structure:
