@@ -23,12 +23,9 @@ jobs:
             pkg update -f
             pkg install -y portlint git
             
-            # Install ports tree
+            # Install ports tree using git (portsnap removed in FreeBSD 15)
             echo "Installing FreeBSD ports tree..."
-            portsnap fetch extract
-            
-            # Or use git (faster for updates)
-            # git clone --depth 1 https://git.freebsd.org/ports.git /usr/ports
+            git clone --depth 1 https://git.freebsd.org/ports.git /usr/ports
           
           run: |
             set -e  # Exit on any error
@@ -49,7 +46,7 @@ jobs:
             echo "=========================================="
             echo "1. Running portlint checks..."
             echo "=========================================="
-            portlint -AC || echo "Portlint warnings (non-fatal)"
+            portlint -AC || echo "⚠️  Portlint warnings (non-fatal)"
             echo ""
             
             echo "=========================================="
