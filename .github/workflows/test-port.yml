@@ -10,8 +10,8 @@ on:
 jobs:
   test-freebsd-port:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    
+    timeout-minutes: 40
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,96 +21,76 @@ jobs:
         with:
           usesh: true
           prepare: |
-            set -e  # FAIL ON ANY ERROR
+            set -e
             pkg update -f
-            pkg install -y git
-          
+            pkg install -y git portlint
+
           run: |
-            set -e  # FAIL ON ANY ERROR - THIS IS CRITICAL!
-            set -o pipefail  # FAIL ON PIPE ERRORS TOO
-            
-            echo "=========================================="
-            echo "FreeBSD Port Test for Arturo"
-            echo "=========================================="
-            echo "FreeBSD Version:"
+            set -e
+            set -o pipefail
             freebsd-version
-            echo ""
-            
-            # Create minimal ports infrastructure
-            mkdir -p /usr/ports/Mk
-            cd /tmp
-            git clone --depth 1 --filter=blob:none --sparse https://git.freebsd.org/ports.git
-            cd ports
-            git sparse-checkout set Mk Templates
-            cp -r Mk/* /usr/ports/Mk/
-            cp -r Templates /usr/ports/
-            
-            # Copy our port
-            mkdir -p /usr/ports/lang/arturo
-            cp -r $GITHUB_WORKSPACE/lang/arturo/* /usr/ports/lang/arturo/
-            cd /usr/ports/lang/arturo
-            
-            echo "=========================================="
-            echo "1. Testing port fetch..."
-            echo "=========================================="
-            make fetch
-            echo ""
-            
-            echo "=========================================="
-            echo "2. Testing port checksum..."
-            echo "=========================================="
-            make checksum
-            echo ""
-            
-            echo "=========================================="
-            echo "3. Testing port extract..."
-            echo "=========================================="
-            make extract
-            echo ""
-            
-            echo "=========================================="
-            echo "4. Verifying extracted contents..."
-            echo "=========================================="
-            echo "Work directory contents:"
-            ls -la work/
-            echo ""
-            
-            echo "=========================================="
-            echo "5. Installing binary directly (skip dependencies for CI)..."
-            echo "=========================================="
-            if [ -f "work/arturo" ]; then
-                install -m 755 work/arturo /usr/local/bin/arturo
-                echo "✅ Binary installed to /usr/local/bin/arturo"
-            else
-                echo "❌ ERROR: Could not find work/arturo binary"
+
+            echo "=== Fetching ports Mk/Templates ==="
+            git clone --depth 1 --filter=blob:none --sparse https://git.freebsd.org/ports.git /usr/ports
+            cd /usr/ports
+            git sparse-checkout set Mk Templates Keywords
+            rm -rf .git
+            mkdir -p lang/arturo
+            cp -r $GITHUB_WORKSPACE/lang/arturo/* lang/arturo/
+            cd lang/arturo
+
+            echo "=== Resolving dependencies to package names ==="
+            DEPS=$(make -V LIB_DEPENDS -V RUN_DEPENDS)
+            echo "Declared: $DEPS"
+            ORIGINS=""
+            for d in $DEPS; do ORIGINS="$ORIGINS ${d#*:}"; done
+            ORIGINS=$(echo $ORIGINS | tr ' ' '\n' | sort -u)
+            PKGS=""
+            for o in $ORIGINS; do
+                dir=${o%@*}
+                if [ "$dir" != "$o" ]; then
+                    fl=${o#*@}
+                    pkgbase=$(pkg rquery '%n %At %Av' "$dir" | awk -v f="$fl" '$2=="flavor" && $3==f {print $1}' | head -1)
+                else
+                    pkgbase=$(pkg rquery '%n' "$dir" | head -1)
+                fi
+                if [ -z "$pkgbase" ]; then
+                    echo "ERROR: no package for origin $o in repository"
+                    exit 1
+                fi
+                echo "$o -> $pkgbase"
+                PKGS="$PKGS $pkgbase"
+            done
+
+            echo "=== portlint ==="
+            echo DEVELOPER=yes >> /etc/make.conf
+            portlint -A
+
+            echo "=== Installing dependency packages ==="
+            pkg install -y $PKGS
+
+            echo "=== Fetch / checksum / stage ==="
+            make BATCH=yes fetch checksum stage
+
+            echo "=== stage-qa (fails on undeclared shared-library deps) ==="
+            make DEVELOPER=yes stage-qa
+
+            echo "=== check-plist ==="
+            make check-plist
+
+            echo "=== install ==="
+            make BATCH=yes install
+
+            echo "=== Runtime check ==="
+            if ldd /usr/local/bin/arturo | grep 'not found'; then
+                echo "ERROR: unresolved shared libraries"
                 exit 1
             fi
-            echo ""
-            
-            echo "=========================================="
-            echo "6. Testing installed binary..."
-            echo "=========================================="
-            which arturo
-            if [ ! -x /usr/local/bin/arturo ]; then
-                echo "❌ ERROR: arturo binary not executable"
-                exit 1
-            fi
-            echo "✅ Binary is executable"
-            
-            file /usr/local/bin/arturo
-            ldd /usr/local/bin/arturo || echo "Note: ldd may show missing dependencies (expected in CI)"
-            
-            # Try to run it - don't fail if deps missing, just note it
-            if arturo --version 2>/dev/null; then
-                echo "✅ Binary runs successfully"
-            else
-                echo "⚠️  Binary needs runtime dependencies (this is OK for binary ports)"
-            fi
-            echo ""
-            
-            echo "=========================================="
-            echo "✅ ALL TESTS PASSED!"
-            echo "=========================================="
+            /usr/local/bin/arturo --version
+            echo 'print 1 + 2' > /tmp/t.art
+            /usr/local/bin/arturo /tmp/t.art | grep -qx 3
+
+            echo "=== ALL TESTS PASSED ==="
 
   verify-structure:
     runs-on: ubuntu-latest
