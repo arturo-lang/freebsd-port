@@ -23,6 +23,7 @@ USE_GNOME=	atk cairo gdkpixbuf glib20 gtk30 pango
 USE_XORG=	xcb
 
 NO_BUILD=	yes
+NO_WRKSUBDIR=	yes
 
 PLIST_FILES=	bin/arturo
 
