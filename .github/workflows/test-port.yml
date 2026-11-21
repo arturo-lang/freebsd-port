@@ -34,6 +34,7 @@ jobs:
             git clone --depth 1 --filter=blob:none --sparse https://git.freebsd.org/ports.git /usr/ports
             cd /usr/ports
             git sparse-checkout set Mk Templates Keywords
+            rm -rf .git
             mkdir -p lang/arturo
             cp -r $GITHUB_WORKSPACE/lang/arturo/* lang/arturo/
             cd lang/arturo
