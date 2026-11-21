@@ -44,17 +44,19 @@ jobs:
             ORIGINS=""
             for d in $DEPS; do ORIGINS="$ORIGINS ${d#*:}"; done
             ORIGINS=$(echo $ORIGINS | tr ' ' '\n' | sort -u)
-            (cd /usr/ports && git sparse-checkout add $(echo "$ORIGINS" | sed 's/@.*//'))
             PKGS=""
             for o in $ORIGINS; do
                 dir=${o%@*}
-                flavor=""
-                case "$o" in *@*) flavor="FLAVOR=${o#*@}";; esac
-                if [ ! -f "/usr/ports/$dir/Makefile" ]; then
-                    echo "ERROR: origin $dir does not exist in ports tree"
+                if [ "$dir" != "$o" ]; then
+                    fl=${o#*@}
+                    pkgbase=$(pkg rquery '%n %At %Av' "$dir" | awk -v f="$fl" '$2=="flavor" && $3==f {print $1}' | head -1)
+                else
+                    pkgbase=$(pkg rquery '%n' "$dir" | head -1)
+                fi
+                if [ -z "$pkgbase" ]; then
+                    echo "ERROR: no package for origin $o in repository"
                     exit 1
                 fi
-                pkgbase=$(make -C /usr/ports/$dir $flavor -V PKGBASE)
                 echo "$o -> $pkgbase"
                 PKGS="$PKGS $pkgbase"
             done
