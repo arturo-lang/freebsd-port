@@ -10,14 +10,15 @@ WWW=		https://arturo-lang.io/
 
 LICENSE=	MIT
 
+ONLY_FOR_ARCHS=	amd64
+
 # Runtime dependencies for full mode
-RUN_DEPENDS=	webkit2-gtk4>=0:www/webkit2-gtk4 \
-		gtk3>=0:x11-toolkits/gtk3 \
+RUN_DEPENDS=	webkit2-gtk>=0:www/webkit2-gtk \
+		gtk30>=0:x11-toolkits/gtk30 \
 		mpfr>=0:math/mpfr
 
 USES=		zip
 
-ONLY_FOR_ARCHS=	amd64
 NO_BUILD=	yes
 
 PLIST_FILES=	bin/arturo

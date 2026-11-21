@@ -51,6 +51,27 @@ jobs:
             cd /usr/ports/lang/arturo
             
             echo "=========================================="
+            echo "0. Verifying RUN_DEPENDS origins exist in ports tree..."
+            echo "=========================================="
+            DEPS=$(make -V RUN_DEPENDS)
+            echo "RUN_DEPENDS: $DEPS"
+            ORIGINS=""
+            for d in $DEPS; do ORIGINS="$ORIGINS ${d#*:}"; done
+            cd /tmp/ports
+            git sparse-checkout add $ORIGINS
+            for o in $ORIGINS; do
+                o=${o%@*}
+                if [ ! -f "/tmp/ports/$o/Makefile" ]; then
+                    echo "❌ ERROR: origin $o does not exist in ports tree"
+                    exit 1
+                fi
+                echo "✅ $o exists"
+                grep -E '^(PORTNAME|FLAVORS|PKGNAMESUFFIX|.*_PKGNAMESUFFIX)' "/tmp/ports/$o/Makefile" || true
+            done
+            cd /usr/ports/lang/arturo
+            echo ""
+
+            echo "=========================================="
             echo "1. Testing port fetch..."
             echo "=========================================="
             make fetch
@@ -99,6 +120,8 @@ jobs:
             
             file /usr/local/bin/arturo
             ldd /usr/local/bin/arturo || echo "Note: ldd may show missing dependencies (expected in CI)"
+            echo "Needed shared libs:"
+            readelf -d /usr/local/bin/arturo | grep NEEDED || true
             
             # Try to run it - don't fail if deps missing, just note it
             if arturo --version 2>/dev/null; then
