@@ -12,12 +12,15 @@ LICENSE=	MIT
 
 ONLY_FOR_ARCHS=	amd64
 
-# Runtime dependencies for full mode
-RUN_DEPENDS=	webkit2-gtk>=0:www/webkit2-gtk \
-		gtk30>=0:x11-toolkits/gtk30 \
-		mpfr>=0:math/mpfr
+LIB_DEPENDS=	libgmp.so:math/gmp \
+		libiconv.so:converters/libiconv \
+		libmpfr.so:math/mpfr \
+		libsoup-3.0.so:devel/libsoup3 \
+		libwebkit2gtk-4.1.so:www/webkit2-gtk@41
 
-USES=		zip
+USES=		gnome xorg zip
+USE_GNOME=	atk cairo gdkpixbuf glib20 gtk30 pango
+USE_XORG=	xcb
 
 NO_BUILD=	yes
 
