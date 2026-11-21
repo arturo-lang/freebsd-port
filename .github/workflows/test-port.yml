@@ -38,9 +38,6 @@ jobs:
             cp -r $GITHUB_WORKSPACE/lang/arturo/* lang/arturo/
             cd lang/arturo
 
-            echo "=== portlint ==="
-            portlint -AC
-
             echo "=== Resolving dependencies to package names ==="
             DEPS=$(make -V LIB_DEPENDS -V RUN_DEPENDS)
             echo "Declared: $DEPS"
@@ -61,6 +58,10 @@ jobs:
                 echo "$o -> $pkgbase"
                 PKGS="$PKGS $pkgbase"
             done
+
+            echo "=== portlint ==="
+            echo DEVELOPER=yes >> /etc/make.conf
+            portlint -A
 
             echo "=== Installing dependency packages ==="
             pkg install -y $PKGS
